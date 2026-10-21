@@ -55,16 +55,19 @@ def simular(m=1.0, omega=2.0, q0=1.0, p0=0.0, dt=0.05, periodos=10):
     H0 = H(q0, p0, m, omega)
 
     # Convergence study over multiple time steps.
+    # Use a fixed end time that is not a multiple of the period to avoid
+    # the coincidental order-2 behaviour of Symplectic Euler at full periods.
+    T_end = 2.0
     dts = 2.0**-np.arange(3, 10)
     err_eu, err_vl = [], []
     for h in dts:
-        n = int(T / h)
-        tt = np.arange(0, T, h)
-        qe, _ = euler_simplectico(q0, p0, h, n, m, omega)
-        qv, _ = verlet(q0, p0, h, n, m, omega)
-        qr = q0 * np.cos(omega * tt) + p0 / (m * omega) * np.sin(omega * tt)
-        err_eu.append(np.max(np.abs(qe[-50:] - qr[-50:])))
-        err_vl.append(np.max(np.abs(qv[-50:] - qr[-50:])))
+        n = int(T_end / h)
+        tt = np.arange(n) * h  # n times, exactly matching the n integrator steps
+        qe, pe = euler_simplectico(q0, p0, h, n, m, omega)
+        qv, pv = verlet(q0, p0, h, n, m, omega)
+        qr, pr = flujo_exacto(tt, m, omega, q0, p0)
+        err_eu.append(np.max(np.abs(qe - qr)) + np.max(np.abs(pe - pr)))
+        err_vl.append(np.max(np.abs(qv - qr)) + np.max(np.abs(pv - pr)))
 
     # Fit slopes to estimate convergence order.
     c_eu = np.polyfit(np.log(dts[-4:]), np.log(err_eu[-4:]), 1)
